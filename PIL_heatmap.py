@@ -171,4 +171,4 @@ data=(dataset.loc[:,['x','y','people']].values/2).tolist()
 data=np.asarray(data,dtype=int)
 # Epilog - Auto Generated #
 
-apply_heatmap('D:\\pycharm_project\\python-heatmap\\11.jpg',data)
+apply_heatmap('img',data)

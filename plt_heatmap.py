@@ -214,4 +214,4 @@ data=np.asarray(data,dtype=int)
 
 
 
-apply_heatmap('D:\\pycharm_project\\python-heatmap\\11.jpg',data)
+apply_heatmap('D:\\pycharm_project\\python-heatmap\\img.jpg',data)
