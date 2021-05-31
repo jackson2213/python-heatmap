@@ -1,9 +1,44 @@
+# Prolog - Auto Generated #
+# -*- coding: utf-8 -*-
 import pandas
 import matplotlib.image as mpimg
 import numpy as np
-from PIL import Image
 import matplotlib.pyplot as plt
-from PIL import ImageDraw2
+import re
+
+ONE_THIRD = 1.0/3.0
+ONE_SIXTH = 1.0/6.0
+TWO_THIRD = 2.0/3.0
+def _v(m1, m2, hue):
+    hue = hue % 1.0
+    if hue < ONE_SIXTH:
+        return m1 + (m2-m1)*hue*6.0
+    if hue < 0.5:
+        return m2
+    if hue < TWO_THIRD:
+        return m1 + (m2-m1)*(TWO_THIRD-hue)*6.0
+    return m1
+def hls_to_rgb(color):
+    m = re.match(
+        r"hsl\(\s*(\d+\.?\d*)\s*,\s*(\d+\.?\d*)%\s*,\s*(\d+\.?\d*)%\s*\)$", color
+    )
+    h, l, s=float(m.group(1)) / 360.0,float(m.group(3)) / 100.0, float(m.group(2)) / 100.0,
+    if s == 0.0:
+        return l, l, l
+    if l <= 0.5:
+        m2 = l * (1.0+s)
+    else:
+        m2 = l+s-(l*s)
+    m1 = 2.0*l - m2
+    rgb= (_v(m1, m2, h+ONE_THIRD), _v(m1, m2, h), _v(m1, m2, h-ONE_THIRD))
+    return (
+        int(rgb[0] * 255 + 0.5),
+        int(rgb[1] * 255 + 0.5),
+        int(rgb[2] * 255 + 0.5),
+        255
+    )
+
+
 
 def mk_circle(r, w):
     u"""根据半径r以及图片宽度 w ，产生一个圆的list
@@ -32,6 +67,9 @@ def mk_circle(r, w):
             y -= 1
         x += 1
     return __tmp.items()
+
+
+
 
 
 def mk_colors(n=240):
@@ -78,16 +116,10 @@ class HeatMap(object):
 
     def __mk_img(self, base=None):
         u"""生成临时图片"""
+        self.__im0= base
+        self.width, self.height = base.shape[1], base.shape[0]  #self.__im0.shape  (160, 120)
+        self.__im = np.full((self.height,self.width, 4), (0, 0, 0, 0))
 
-        base = base or self.base
-        self.__im0 = None
-
-        if base:
-            str_type = (str,)
-            self.__im0 = Image.open(base) if type(base) in str_type else base
-            self.width, self.height = self.__im0.size
-
-        self.__im = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
 
     def __heat(self, heat_data, x, y, n, template):
         l = len(heat_data)
@@ -102,7 +134,6 @@ class HeatMap(object):
         import re
         im = self.__im
         rr = re.compile(", (\d+)%\)")
-        dr = ImageDraw2.ImageDraw.Draw(im)
         width = self.width
         height = self.height
         max_v = max(heat_data)
@@ -123,15 +154,21 @@ class HeatMap(object):
                 alpha = int(rr.findall(color)[0])
                 if alpha > 50:
                     al = 255 - 255 * (alpha - 50) // 50
-                    im.putpixel((x, y), (0, 0, 255, al))
+                    im[y][x]=(0, 0, 255, al)
                 else:
-                    dr.point((x, y), fill=color)
+                    im[y][x]=hls_to_rgb(color)
 
     def __add_base(self):
-        if not self.__im0:
-            return
-        self.__im0.paste(self.__im, mask=self.__im)
-        self.__im = self.__im0
+        front = np.asarray(self.__im)
+        result = np.empty(front.shape, dtype='float')
+        alpha = np.index_exp[:, :, 3:]
+        rgb = np.index_exp[:, :, :3]
+        falpha = front[alpha] / 255.0
+        result[rgb] = (front[rgb] * falpha + self.__im0 * (1 - falpha))
+        np.clip(result, 0, 255)
+        result = result.astype('uint8')
+        self.__im = result[rgb]
+
 
     def heatmap(self, base=None, data=None, r=10):
         u"""绘制热图"""
@@ -155,7 +192,7 @@ class HeatMap(object):
 def apply_heatmap(image,data):
     '''image是原图，data是坐标'''
     image1=mpimg.imread(image)
-    background = Image.new("RGB", (image1.shape[1], image1.shape[0]), color=0)
+    background = np.full(image1.shape, (0, 0, 0)) #生成黑色背景图
     # 开始绘制热度图
     hm = HeatMap(data)
     hit_img = hm.heatmap(base=background, r=30)  # background为背景图片，r是半径，默认为10
@@ -168,8 +205,13 @@ def apply_heatmap(image,data):
 
     plt.show()
 
+
+
+dataset = pandas.read_csv('input_df_b31ec4e4-69ad-479f-9ea0-058ea839065b.csv')
 data=(dataset.loc[:,['x','y','people']].values/2).tolist()
 data=np.asarray(data,dtype=int)
 # Epilog - Auto Generated #
+
+
 
 apply_heatmap('D:\\pycharm_project\\python-heatmap\\11.jpg',data)
